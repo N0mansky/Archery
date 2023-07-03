@@ -79,11 +79,16 @@ Vagrant.configure("2") do |config|
   config.vm.provision "shell", inline: <<-SHELL
     apt-get update
     apt install build-essential -y
-    apt install libffi-dev wget gcc make zlib1g-dev openssl libssl-dev libncurses-dev ldap-utils gettext libbz2-dev xz-utils python3 python3-dev python3-venv supervisor libmysqlclient-dev libpq-dev libldap2-dev libsasl2-dev g++ unixodbc-dev -y
+    apt install libffi-dev wget gcc make zlib1g-dev openssl libssl-dev libncurses-dev \
+        ldap-utils gettext libbz2-dev xz-utils python3 python3-dev python3-venv supervisor \
+        docker-compose libmysqlclient-dev libpq-dev libldap2-dev libsasl2-dev g++ unixodbc-dev mysql-client \
+        -y
     curl -s https://bootstrap.pypa.io/get-pip.py | python3
     python3 -m venv /home/vagrant/venv
     source /home/vagrant/venv/bin/activate
     echo 'source /home/vagrant/venv/bin/activate' >> /home/vagrant/.bash_profile
     pip install -r /vagrant/requirements.txt
+    cd /vagrant
+    nohup python3 manage.py qcluster > /dev/null 2>&1 &
   SHELL
 end
