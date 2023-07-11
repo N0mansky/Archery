@@ -1,13 +1,15 @@
 # -*- coding: UTF-8 -*-
 import logging
+import re
 import traceback
 
 from django.db import close_old_connections, connection, transaction
+from django.db.models import Q
 from django_redis import get_redis_connection
 from common.utils.const import WorkflowDict
 from common.config import SysConfig
 from sql.engines.models import ReviewResult, ReviewSet
-from sql.models import SqlWorkflow
+from sql.models import SqlWorkflow, DBEnvRelation
 from sql.notify import notify_for_execute
 from sql.utils.workflow_audit import Audit
 from sql.engines import get_engine
@@ -93,6 +95,47 @@ def execute_callback(task):
         )
         workflow.sqlworkflowcontent.execute_result = {f"{e}"}
         workflow.sqlworkflowcontent.save()
+    # Get environment relationship of database
+    db_relate = DBEnvRelation.objects.filter(
+        (Q(dev_instance=workflow.instance) & Q(dev_database=workflow.db_name))
+        | (Q(sit_instance=workflow.instance) & Q(sit_database=workflow.db_name))
+        | (Q(uat_instance=workflow.instance) & Q(uat_database=workflow.db_name))
+        | (Q(pro_instance=workflow.instance) & Q(pro_database=workflow.db_name))
+    ).first()
+    curr_env, next_env = '', ''
+    curr_workflow_rst = workflow.get_status_display()
+    try:
+        if workflow.instance == db_relate.dev_instance and workflow.db_name == db_relate.dev_database:
+            curr_env = 'dev'
+            if db_relate.sit_instance is not None and len(db_relate.sit_database) > 0:
+                next_env = 'sit'
+                workflow.instance, workflow.db_name = db_relate.sit_instance, db_relate.sit_database
+        elif workflow.instance == db_relate.sit_instance and workflow.db_name == db_relate.sit_database:
+            curr_env = 'sit'
+            if db_relate.uat_instance is not None and len(db_relate.uat_database) > 0:
+                next_env = 'uat'
+                workflow.instance, workflow.db_name = db_relate.uat_instance, db_relate.uat_database
+        elif workflow.instance == db_relate.uat_instance and workflow.db_name == db_relate.uat_database:
+            curr_env = 'uat'
+            if db_relate.pro_instance is not None and len(db_relate.pro_database) > 0:
+                next_env = 'pro'
+                workflow.instance, workflow.db_name = db_relate.pro_instance, db_relate.pro_database
+        elif workflow.instance == db_relate.pro_instance and workflow.db_name == db_relate.pro_database:
+            curr_env = 'pro'
+    except Exception as e:
+        logger.error(e)
+    prompt = ""
+    if next_env != "":
+        workflow.status = "workflow_review_pass"
+        match = re.match(r'^\[(dev|sit|uat|pro)\]', workflow.workflow_name)
+        curr_mark = '[{}]'.format(curr_env)
+        next_mark = '[{}]'.format(next_env)
+        if not match:
+            workflow.workflow_name = next_mark + workflow.workflow_name
+        else:
+            workflow.workflow_name = workflow.workflow_name.replace(curr_mark,next_mark)
+        prompt = ',{} 环境待执行'.format(next_env)
+    workflow.save()
     # 增加工单日志
     audit_id = Audit.detail_by_workflow_id(
         workflow_id=workflow_id, workflow_type=WorkflowDict.workflow_type["sqlreview"]
@@ -100,8 +143,8 @@ def execute_callback(task):
     Audit.add_log(
         audit_id=audit_id,
         operation_type=6,
-        operation_type_desc="执行结束",
-        operation_info="执行结果：{}".format(workflow.get_status_display()),
+        operation_type_desc="{} 执行结束".format(curr_env),
+        operation_info="{} 环境执行结果：{}{}".format(curr_env, curr_workflow_rst, prompt),
         operator="",
         operator_display="系统",
     )

@@ -14,5 +14,6 @@ sonar-project.properties
 .scannerwork
 .env
 local_settings.py
-# vagrant
 .vagrant
+static
+**/mysql/datadir/

@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponseRedirect, FileResponse, Http404
 from django.urls import reverse
@@ -30,7 +31,7 @@ from .models import (
     QueryLog,
     ArchiveConfig,
     AuditEntry,
-    TwoFactorAuthConfig,
+    TwoFactorAuthConfig, DBEnvRelation,
 )
 from sql.utils.workflow_audit import Audit
 from sql.utils.sql_review import (
@@ -126,7 +127,7 @@ def sqlworkflow(request):
         pass
     # 非管理员，拥有审核权限、资源组粒度执行权限的，可以查看组内所有工单
     elif user.has_perm("sql.sql_review") or user.has_perm(
-        "sql.sql_execute_for_resource_group"
+            "sql.sql_execute_for_resource_group"
     ):
         # 先获取用户所在资源组列表
         group_list = user_groups(user)
@@ -246,7 +247,18 @@ def detail(request, workflow_id):
 
     # 获取是否开启手工执行确认
     manual = SysConfig().get("manual")
-
+    workflow = workflow_detail
+    change_color = False
+    db_relate = DBEnvRelation.objects.filter(
+        (Q(dev_instance=workflow.instance) & Q(dev_database=workflow.db_name))
+        | (Q(sit_instance=workflow.instance) & Q(sit_database=workflow.db_name))
+        | (Q(uat_instance=workflow.instance) & Q(uat_database=workflow.db_name))
+        | (Q(pro_instance=workflow.instance) & Q(pro_database=workflow.db_name))
+    ).first()
+    if workflow.instance == db_relate.uat_instance and workflow.db_name == db_relate.uat_database:
+        change_color = True
+    elif workflow.instance == db_relate.pro_instance and workflow.db_name == db_relate.pro_database:
+        change_color = True
     context = {
         "workflow_detail": workflow_detail,
         "last_operation_info": last_operation_info,
@@ -259,6 +271,7 @@ def detail(request, workflow_id):
         "manual": manual,
         "current_audit_auth_group": current_audit_auth_group,
         "run_date": run_date,
+        "change_color": change_color,
     }
     return render(request, "detail.html", context)
 
@@ -604,7 +617,7 @@ def audit_sqlworkflow(request):
         pass
     # 非管理员，拥有审核权限、资源组粒度执行权限的，可以查看组内所有工单
     elif user.has_perm("sql.sql_review") or user.has_perm(
-        "sql.sql_execute_for_resource_group"
+            "sql.sql_execute_for_resource_group"
     ):
         # 先获取用户所在资源组列表
         group_list = user_groups(user)

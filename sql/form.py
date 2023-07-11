@@ -9,7 +9,7 @@
 ---------------------------------------------------------
 """
 from django.forms import ModelForm, Textarea
-from sql.models import Tunnel, Instance
+from sql.models import Tunnel, Instance, DBEnvRelation
 from django.core.exceptions import ValidationError
 
 
@@ -37,6 +37,15 @@ class TunnelForm(ModelForm):
 class InstanceForm(ModelForm):
     class Media:
         model = Instance
+        js = (
+            "jquery/jquery.min.js",
+            "dist/js/utils.js",
+        )
+
+
+class DBEnvRelationForm(ModelForm):
+    class Media:
+        model = DBEnvRelation
         js = (
             "jquery/jquery.min.js",
             "dist/js/utils.js",

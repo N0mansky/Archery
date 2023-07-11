@@ -27,7 +27,7 @@ from sql.utils.sql_review import (
     can_execute,
     on_correct_time_period,
     can_view,
-    can_rollback,
+    can_rollback, can_execute_at_env,
 )
 from sql.utils.workflow_audit import Audit
 from .models import SqlWorkflow, SqlWorkflowContent, Instance
@@ -314,6 +314,10 @@ def execute(request):
 
     if can_execute(request.user, workflow_id) is False:
         context = {"errMsg": "你无权操作当前工单！"}
+        return render(request, "error.html", context)
+
+    if can_execute_at_env(request.user, workflow_id) is False:
+        context = {"errMsg": "你无权操作当前环境，联系Leader或DBA组用户执行！"}
         return render(request, "error.html", context)
 
     if on_correct_time_period(workflow_id) is False:

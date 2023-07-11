@@ -5,7 +5,15 @@
     <div class="form-inline">
         <h4 style="display: inline;">
             <a target="_blank"
-               href="{{ workflow_detail.demand_url }}">{{ workflow_detail.workflow_name }}</a>
+               href="{{ workflow_detail.demand_url }}">
+                {% if change_color %}
+                    <font color="red">
+                        {{ workflow_detail.workflow_name }}
+                    </font>
+                {% else %}
+                    {{ workflow_detail.workflow_name }}
+                {% endif %}
+            </a>
         </h4>
         <!--只允许发起人提交其他实例-->
         {% if user.username == workflow_detail.engineer %}
@@ -75,7 +83,13 @@
                 {{ workflow_detail.instance.instance_name }}
             </td>
             <td>
-                {{ workflow_detail.db_name }}
+               {% if change_color %}
+                <font color="red">
+                    {{ workflow_detail.db_name }}
+                </font>
+                {% else %}
+                    {{ workflow_detail.db_name }}
+                {% endif %}
             </td>
             <td>
                 {{ workflow_detail.create_time }}

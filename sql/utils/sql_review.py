@@ -1,10 +1,12 @@
 import datetime
 import json
 import re
+
 from django.db import transaction
+from django.db.models import Q
 
 from sql.engines.models import ReviewResult
-from sql.models import SqlWorkflow
+from sql.models import SqlWorkflow, DBEnvRelation
 from common.config import SysConfig
 from sql.utils.resource_group import user_groups
 from sql.utils.sql_utils import remove_comments
@@ -22,10 +24,10 @@ def is_auto_review(workflow_id):
     auto_review_db_type = SysConfig().get("auto_review_db_type", "").split(",")
     # TODO 这里也可以放到engine中实现，但是配置项可能会相对复杂
     if (
-        workflow.instance.db_type in auto_review_db_type
-        and workflow.instance.instance_tag.filter(
-            tag_code__in=auto_review_tags
-        ).exists()
+            workflow.instance.db_type in auto_review_db_type
+            and workflow.instance.instance_tag.filter(
+        tag_code__in=auto_review_tags
+    ).exists()
     ):
         # 获取正则表达式
         auto_review_regex = SysConfig().get(
@@ -82,6 +84,35 @@ def can_execute(user, workflow_id):
     # 当前登录用户为提交人，并且有执行权限
     if workflow_detail.engineer == user.username and user.has_perm("sql.sql_execute"):
         result = True
+    return result
+
+
+def can_execute_at_env(user, workflow_id):
+    result = True
+    if user.is_superuser == 1:
+        return result
+    user_groups_name = [g.name.lower() for g in user.groups.all()]
+    if 'admin' in user_groups_name or 'dba' in user_groups_name or 'leader' in user_groups_name:
+        return result
+    with transaction.atomic():
+        workflow = SqlWorkflow.objects.get(id=workflow_id)
+        db_relate = DBEnvRelation.objects.filter(
+            (Q(dev_instance=workflow.instance) & Q(dev_database=workflow.db_name))
+            | (Q(sit_instance=workflow.instance) & Q(sit_database=workflow.db_name))
+            | (Q(uat_instance=workflow.instance) & Q(uat_database=workflow.db_name))
+            | (Q(pro_instance=workflow.instance) & Q(pro_database=workflow.db_name))
+        ).first()
+        curr_env = ''
+        if workflow.instance == db_relate.dev_instance and workflow.db_name == db_relate.dev_database:
+            curr_env = 'dev'
+        elif workflow.instance == db_relate.sit_instance and workflow.db_name == db_relate.sit_database:
+            curr_env = 'sit'
+        if workflow.instance == db_relate.uat_instance and workflow.db_name == db_relate.uat_database:
+            curr_env = 'uat'
+            result = False
+        elif workflow.instance == db_relate.pro_instance and workflow.db_name == db_relate.pro_database:
+            curr_env = 'pro'
+            result = False
     return result
 
 

@@ -18,6 +18,9 @@ Vagrant.configure("2") do |config|
   config.vm.network "private_network", ip: "192.168.57.140",
     name: "hostnet57",
     auto_config: true
+  if Vagrant.has_plugin?("vagrant-timezone")
+   config.timezone.value = :host
+  end
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
   # `vagrant box outdated`. This is not recommended.
@@ -78,11 +81,12 @@ Vagrant.configure("2") do |config|
   # documentation for more information about their specific syntax and use.
   config.vm.provision "shell", inline: <<-SHELL
     apt-get update
-    apt install build-essential -y
+    apt install build-essential ntp ntpdate -y
     apt install libffi-dev wget gcc make zlib1g-dev openssl libssl-dev libncurses-dev \
         ldap-utils gettext libbz2-dev xz-utils python3 python3-dev python3-venv supervisor \
         docker-compose libmysqlclient-dev libpq-dev libldap2-dev libsasl2-dev g++ unixodbc-dev mysql-client \
         -y
+    systemctl start ntp
     curl -s https://bootstrap.pypa.io/get-pip.py | python3
     python3 -m venv /home/vagrant/venv
     source /home/vagrant/venv/bin/activate

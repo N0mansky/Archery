@@ -28,10 +28,10 @@ from .models import (
     InstanceTag,
     Tunnel,
     AuditEntry,
-    TwoFactorAuthConfig,
+    TwoFactorAuthConfig, DBEnvRelation,
 )
 
-from sql.form import TunnelForm, InstanceForm
+from sql.form import TunnelForm, InstanceForm, DBEnvRelationForm
 
 
 # 用户管理
@@ -194,6 +194,25 @@ class InstanceAdmin(admin.ModelAdmin):
     )
 
     inlines = [AliRdsConfigInline]
+
+
+@admin.register(DBEnvRelation)
+class DBEnvRelationAdmin(admin.ModelAdmin):
+    form = DBEnvRelationForm
+    list_display = (
+        "id",
+        "db_name",
+        "dev_instance",
+        "dev_database",
+        "sit_instance",
+        "sit_database",
+        "uat_instance",
+        "uat_database",
+        "pro_instance",
+        "pro_database",
+    )
+    search_fields = ["db_name"]
+    list_filter = ("dev_instance", "sit_instance", "uat_instance", "pro_instance")
 
 
 # SSH隧道

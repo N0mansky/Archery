@@ -239,6 +239,31 @@ SQL_WORKFLOW_CHOICES = (
 )
 
 
+class DBEnvRelation(models.Model):
+    db_name = models.CharField(max_length=50)
+    dev_instance = models.ForeignKey(Instance, on_delete=models.CASCADE, related_name='dev_dbenvrelation_set',
+                                     null=True, blank=True)
+    sit_instance = models.ForeignKey(Instance, on_delete=models.CASCADE, related_name='sit_dbenvrelation_set',
+                                     null=True, blank=True)
+    uat_instance = models.ForeignKey(Instance, on_delete=models.CASCADE, related_name='uat_dbenvrelation_set',
+                                     null=True, blank=True)
+    pro_instance = models.ForeignKey(Instance, on_delete=models.CASCADE, related_name='pro_dbenvrelation_set',
+                                     null=True, blank=True)
+    dev_database = models.CharField("dev database", max_length=64,null=True,blank=True,default='')
+    sit_database = models.CharField("sit database", max_length=64,null=True,blank=True,default='')
+    uat_database = models.CharField("uat database", max_length=64,null=True,blank=True,default='')
+    pro_database = models.CharField("pro database", max_length=64,null=True,blank=True,default='')
+
+    def __str__(self):
+        return self.db_name
+
+    class Meta:
+        managed = True
+        db_table = "db_env_relation"
+        verbose_name = "数据库环境关联"
+        verbose_name_plural = "数据库环境关联"
+
+
 class SqlWorkflow(models.Model):
     """
     存放各个SQL上线工单的基础内容
